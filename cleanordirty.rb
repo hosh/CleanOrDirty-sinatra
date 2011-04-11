@@ -28,7 +28,18 @@ class Dishwasher
 
   before :create, :set_defaults
   after  :create, :set_url_code
+  
+  # Acceptor pattern (complement of Presenter pattern)
+  def self.accept_params(params)
+    params.delete("code") # can't update code
+    params.delete("name") if params["name"].blank?
+    params.delete("status") if params["status"].blank?
 
+    params['last_updated'] = params['last_updated'].to_i  # nil.to_i is 0. ''.to_i is 0 
+
+    return params
+  end
+  
   private
 
   def set_defaults
@@ -103,12 +114,8 @@ private
     dishwasher = Dishwasher.first(:code => code)
     if dishwasher
       begin
-        body = JSON.parse(request.body.read)
-        puts body
-        client_ts = preprocess_update_request(body)
-        server_ts = dishwasher.last_updated
-        dishwasher.update(body) if client_ts > server_ts # client's info is newer
-        puts dishwasher.to_json
+        params = Dishwasher.accept_params(JSON.parse(request.body.read))
+        dishwasher.update(body) if params['last_updated'] > dishwasher.last_updated
         dishwasher.to_json
       rescue => e
         error 400, e.message.to_json
@@ -118,16 +125,6 @@ private
     end
   end
 
-  # Return the last_updated field from the http request.
-  def preprocess_update_request(body)
-    body.delete("code") # can't update code
-    body.delete("name") if body["name"].blank?
-    body.delete("status") if body["status"].blank?
-    client_last_update = body["last_updated"]
-    ts = (client_last_update.blank? ? 0 : client_last_update)
-    ts.to_i
-  end
-  
   def delete_dishwasher(code)
     dishwasher = Dishwasher.first(:code => code)
     if dishwasher
