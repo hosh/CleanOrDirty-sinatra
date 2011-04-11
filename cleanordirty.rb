@@ -48,11 +48,8 @@ end
 
 get '/api/v1/dishwashers/:code' do
   dishwasher = Dishwasher.first(:code => params[:code])
-  if dishwasher
-    dishwasher.to_json
-  else
-    error 404, "dishwasher not found".to_json
-  end
+  return error 404, 'diswasher not found'.to_json unless dishwasher
+  return dishwasher.to_json
 end
 
 post '/api/v1/dishwashers' do
