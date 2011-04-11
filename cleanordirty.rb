@@ -91,46 +91,31 @@ post '/api/v1/dishwashers' do
 end
 
 
+# TODO validate updates
+#     cannot update code
+#     status should be clean or dirty
+#     name should be bounded
+
 post '/api/v1/dishwashers/update/:code' do
-  update_dishwasher(params[:code])
-end
+  dishwasher = Dishwasher.first(:code => code)
+  return error 404, "dishwasher not found".to_json unless dishwasher
 
-delete '/api/v1/dishwashers/:code' do
-  delete_dishwasher(params[:code])
-end
-
-post '/api/v1/dishwashers/delete/:code' do
-  delete_dishwasher(params[:code])
-end
-
-private
-
-  # TODO validate updates
-  #     cannot update code
-  #     status should be clean or dirty
-  #     name should be bounded
-
-  def update_dishwasher(code)
-    dishwasher = Dishwasher.first(:code => code)
-    if dishwasher
-      begin
-        params = Dishwasher.accept_params(JSON.parse(request.body.read))
-        dishwasher.update(body) if params['last_updated'] > dishwasher.last_updated
-        dishwasher.to_json
-      rescue => e
-        error 400, e.message.to_json
-      end
-    else
-      error 404, "dishwasher not found".to_json
-    end
+  begin
+    params = Dishwasher.accept_params(JSON.parse(request.body.read))
+    dishwasher.update(body) if params['last_updated'] > dishwasher.last_updated
+    dishwasher.to_json
+  rescue => e
+    error 400, e.message.to_json
   end
+end
 
-  def delete_dishwasher(code)
-    dishwasher = Dishwasher.first(:code => code)
-    if dishwasher
-      dishwasher.destroy
-      dishwasher.to_json
-    else
-      error 404, "dishwasher not found".to_json
-    end
-  end
+delete_dishwasher = proc do
+  dishwasher = Dishwasher.first(:code => code)
+  return error 404, "dishwasher not found".to_json unless dishwasher
+
+  dishwasher.destroy
+  return dishwasher.to_json # This really should be returning something like 200 OK without content
+end
+
+delete('/api/v1/dishwashers/:code', &delete_dishwasher)
+post('/api/v1/dishwashers/delete/:code', &delete_dishwasher) 
