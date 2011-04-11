@@ -25,6 +25,21 @@ class Dishwasher
   property :last_updated,   Integer
   # validations
   validates_uniqueness_of :code
+
+  before :create, :set_defaults
+  after  :create, :set_url_code
+
+  private
+
+  def set_defaults
+    self.status ||= "dirty"
+    self.last_updated ||= Time.now.utc.to_i
+  end
+
+  def set_url_code
+    self.code = $bitly.shorten("http://cleanordirty.heroku.com/api/v1/dishwashers/#{dishwasher.id}").user_hash
+  end
+
 end
 
 DataMapper.finalize
@@ -57,18 +72,8 @@ post '/api/v1/dishwashers' do
     body = JSON.parse(request.body.read)
     dishwasher = Dishwasher.create(body)
     
-    if dishwasher
-      u = $bitly.shorten("http://cleanordirty.heroku.com/api/v1/dishwashers/#{dishwasher.id}")
-
-      dishwasher.code = u.user_hash
-      dishwasher.status ||= "dirty"
-      dishwasher.last_updated ||= Time.now.utc.to_i
-      dishwasher.save
-      dishwasher.to_json
-    else
-      error 400, "error creating dishwasher".to_json
-    end
-    
+    return error 400, "error creating dishwasher".to_json if dishwasher.new?
+    return dishwasher.to_json
   rescue => e
     error 400, e.message.to_json
   end
